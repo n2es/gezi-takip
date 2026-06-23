@@ -75,6 +75,13 @@
 
   .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 15px; line-height: 1.5; }
 
+  .city-row { display: flex; align-items: center; gap: 10px; background: var(--card);
+    border: 1px solid #2a2f3a; border-radius: 12px; padding: 16px; margin-bottom: 8px; cursor: pointer; }
+  .city-row:active { background: var(--card2); }
+  .city-row .cname { flex: 1; min-width: 0; font-size: 17px; font-weight: 500; }
+  .city-row .cmeta { font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .city-row .chev { color: var(--muted); font-size: 20px; line-height: 1; margin-left: 2px; }
+
   .list-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px;
     margin-top: 22px; }
   .summary { font-size: 14px; color: var(--muted); font-weight: 600; }
@@ -103,11 +110,27 @@
 </head>
 <body>
 
-<!-- LİSTE (ANA EKRAN) -->
+<!-- ANA EKRAN: ŞEHİR LİSTESİ -->
 <section id="home" class="screen active">
   <div class="home-head">
-    <span class="city">Hanoi</span>
+    <span class="city">Gezilecekler</span>
     <button class="gear-btn" onclick="show('setup')" aria-label="Ayarlar">⚙️</button>
+  </div>
+  <div id="cityList"></div>
+  <div class="list-foot">
+    <span class="summary" id="citySummary"></span>
+    <button class="add-btn" onclick="show('addcity')">＋ Şehir ekle</button>
+  </div>
+</section>
+
+<!-- ŞEHİR: YER LİSTESİ -->
+<section id="city" class="screen">
+  <div class="topbar">
+    <button class="back-btn" onclick="show('home')" aria-label="Geri">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1 id="cityTitle"></h1>
+    <span class="spacer"></span>
   </div>
   <div class="chips" id="statusChips"></div>
   <div class="chips" id="catChips"></div>
@@ -118,10 +141,27 @@
   </div>
 </section>
 
+<!-- ŞEHİR EKLE -->
+<section id="addcity" class="screen">
+  <div class="topbar">
+    <button class="back-btn" onclick="show('home')" aria-label="Geri">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1>Şehir Ekle</h1>
+    <span class="spacer"></span>
+  </div>
+  <label for="cName">Şehir</label>
+  <input type="text" id="cName" placeholder="Örn. Da Nang" autocomplete="off">
+  <label>Ülke</label>
+  <div class="chips" id="countryChips"></div>
+  <input type="text" id="cCountry" placeholder="Yeni ülke yaz (örn. Japonya)" autocomplete="off">
+  <button class="primary" id="saveCityBtn" onclick="saveCity()">Kaydet</button>
+</section>
+
 <!-- YER EKLE -->
 <section id="add" class="screen">
   <div class="topbar">
-    <button class="back-btn" onclick="show('home')" aria-label="Geri">
+    <button class="back-btn" onclick="show('city')" aria-label="Geri">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <h1>Yer Ekle</h1>
@@ -166,7 +206,6 @@ const cfg = {
   url: localStorage.getItem("supaUrl") || "",
   key: localStorage.getItem("supaKey") || "",
 };
-const CITY = "Hanoi";
 const $ = (id) => document.getElementById(id);
 
 // Kategoriler: slug → Türkçe etiket (sabit sıra)
@@ -180,7 +219,9 @@ const CATS = [
 const CAT_LABEL = Object.fromEntries(CATS.map(c => [c.slug, c.label]));
 
 // ── Durum ─────────────────────────────────────────────────────
-let places = [];        // şehrin tüm kayıtları (önbellek)
+let cities = [];        // tüm şehirler (önbellek)
+let activeCity = "";    // açık olan şehir (yer listesi bu şehre ait)
+let places = [];        // aktif şehrin yer kayıtları
 let fStatus = "all";    // all | todo | done
 let fCat = "all";       // all | <slug>
 let addCat = "sight";   // yer ekle ekranındaki seçili kategori
@@ -190,10 +231,15 @@ function show(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   $(id).classList.add("active");
   window.scrollTo(0, 0);
-  if (id === "home") loadPlaces();
+  if (id === "home") loadHome();
+  if (id === "city") { $("cityTitle").textContent = activeCity; loadPlaces(); }
   if (id === "add") {
     $("pName").value = ""; $("pArea").value = ""; $("pNote").value = "";
     addCat = "sight"; renderAddChips();
+  }
+  if (id === "addcity") {
+    $("cName").value = ""; $("cCountry").value = "";
+    renderCountryChips();
   }
   if (id === "setup") {
     $("supaUrl").value = cfg.url; $("supaKey").value = cfg.key;
@@ -219,7 +265,7 @@ async function httpErrorText(res) {
   if (res.status === 401 || res.status === 403)
     return "Yetki hatası (" + res.status + "): API anahtarı yanlış ya da tabloda izin (RLS) politikası eksik." + (detail ? " — " + detail : "");
   if (res.status === 404)
-    return "Tablo bulunamadı (404): 'places' tablosu yok. Supabase SQL Editor'da KURULUM.md'deki SQL'i çalıştır.";
+    return "Tablo bulunamadı (404): gerekli tablolar (cities / places) yok. Supabase SQL Editor'da KURULUM.md'deki SQL'i çalıştır.";
   return "Sunucu hatası (" + res.status + ")" + (detail ? ": " + detail : "");
 }
 
@@ -238,14 +284,76 @@ const normName = (s) => s.trim().replace(/\s+/g, " ");
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-// ── Liste yükleme + filtre + render ───────────────────────────
+// ── Ana ekran: şehir listesi (ülkeye göre gruplu) ─────────────
+async function loadHome() {
+  const list = $("cityList");
+  if (!cfg.url || !cfg.key) return;
+  list.innerHTML = '<div class="empty">Yükleniyor…</div>';
+  try {
+    const [cRes, pRes] = await Promise.all([
+      fetch(cfg.url + "/rest/v1/cities?select=*&order=country.asc,name.asc", { headers: headers() }),
+      fetch(cfg.url + "/rest/v1/places?select=city,status", { headers: headers() }),
+    ]);
+    if (!cRes.ok) throw new Error(await httpErrorText(cRes));
+    if (!pRes.ok) throw new Error(await httpErrorText(pRes));
+    cities = await cRes.json();
+    const placeRows = await pRes.json();
+    // Şehir bazlı sayım: { şehir: {done, total} }
+    const counts = {};
+    for (const p of placeRows) {
+      const c = counts[p.city] || (counts[p.city] = { done: 0, total: 0 });
+      c.total++; if (p.status === "done") c.done++;
+    }
+    renderHome(counts);
+  } catch (e) {
+    const msg = e.message && e.message.length > 5 ? e.message : "Veriler alınamadı. Bağlantını kontrol et.";
+    list.innerHTML = '<div class="empty">' + escapeHtml(msg) + "</div>";
+    $("citySummary").textContent = "";
+  }
+}
+
+function renderHome(counts) {
+  const list = $("cityList");
+  if (!cities.length) {
+    list.innerHTML = '<div class="empty">Henüz şehir yok.<br>＋ Şehir ekle ile başla.</div>';
+    $("citySummary").textContent = "";
+    return;
+  }
+  // Ülkeye göre grupla (cities zaten country,name sıralı geldi)
+  let html = "", lastCountry = null, totDone = 0, totAll = 0;
+  for (const c of cities) {
+    if (c.country !== lastCountry) {
+      html += `<div class="cat-group">${escapeHtml(c.country)}</div>`;
+      lastCountry = c.country;
+    }
+    const ct = counts[c.name] || { done: 0, total: 0 };
+    totDone += ct.done; totAll += ct.total;
+    const meta = ct.total ? ct.done + "/" + ct.total : "0 yer";
+    html += `
+      <div class="city-row" onclick="openCity('${escapeHtml(c.name).replace(/'/g, "\\'")}')">
+        <span class="cname">${escapeHtml(c.name)}</span>
+        <span class="cmeta">${meta}</span>
+        <span class="chev">›</span>
+      </div>`;
+  }
+  list.innerHTML = html;
+  $("citySummary").textContent = totAll ? totDone + "/" + totAll + " gezildi" : cities.length + " şehir";
+}
+
+function openCity(name) {
+  activeCity = name;
+  fStatus = "all"; fCat = "all"; // her şehirde filtreyi sıfırla
+  show("city");
+}
+
+// ── Yer listesi (aktif şehir) ─────────────────────────────────
 async function loadPlaces() {
   const list = $("list");
   renderFilterChips();
   if (!cfg.url || !cfg.key) return;
   list.innerHTML = '<div class="empty">Yükleniyor…</div>';
   try {
-    const res = await fetch(cfg.url + "/rest/v1/places?city=eq." + encodeURIComponent(CITY) + "&select=*&order=name.asc", { headers: headers() });
+    const res = await fetch(cfg.url + "/rest/v1/places?city=eq." + encodeURIComponent(activeCity) + "&select=*&order=name.asc", { headers: headers() });
     if (!res.ok) throw new Error(await httpErrorText(res));
     places = await res.json();
     renderList();
@@ -355,7 +463,7 @@ function pickAddCat(slug) { addCat = slug; renderAddChips(); }
 async function savePlace() {
   const name = normName($("pName").value);
   if (!name) return toast("Yer adını yaz", true);
-  const row = { city: CITY, name, category: addCat, status: "todo" };
+  const row = { city: activeCity, name, category: addCat, status: "todo" };
   const area = normName($("pArea").value);
   const note = $("pNote").value.trim();
   if (area) row.area = area;
@@ -370,6 +478,36 @@ async function savePlace() {
     return toast("Bağlantı yok — kaydedilemedi, tekrar dene", true);
   }
   $("saveBtn").disabled = false;
+  if (!res.ok) return toast(await httpErrorText(res), true);
+  toast("Eklendi ✓");
+  show("city");
+}
+
+// ── Şehir ekle ────────────────────────────────────────────────
+function renderCountryChips() {
+  const countries = [...new Set(cities.map(c => c.country))].sort();
+  $("countryChips").innerHTML = countries.map(c =>
+    `<button class="chip" onclick="$('cCountry').value='${escapeHtml(c).replace(/'/g, "\\'")}'">${escapeHtml(c)}</button>`).join("");
+}
+
+async function saveCity() {
+  const name = normName($("cName").value);
+  const country = normName($("cCountry").value);
+  if (!name) return toast("Şehir adını yaz", true);
+  if (!country) return toast("Ülke seç ya da yaz", true);
+  // Aynı şehir zaten varsa tekrar ekleme.
+  if (cities.some(c => c.name.toLocaleLowerCase("tr") === name.toLocaleLowerCase("tr")))
+    return toast("Bu şehir zaten ekli", true);
+
+  $("saveCityBtn").disabled = true;
+  let res;
+  try {
+    res = await fetch(cfg.url + "/rest/v1/cities", { method: "POST", headers: headers(), body: JSON.stringify({ name, country }) });
+  } catch (e) {
+    $("saveCityBtn").disabled = false;
+    return toast("Bağlantı yok — kaydedilemedi, tekrar dene", true);
+  }
+  $("saveCityBtn").disabled = false;
   if (!res.ok) return toast(await httpErrorText(res), true);
   toast("Eklendi ✓");
   show("home");
@@ -389,7 +527,7 @@ async function saveConfig() {
   $("connectBtn").disabled = true;
   errEl.textContent = "Bağlantı deneniyor…";
   try {
-    const res = await fetch(url + "/rest/v1/places?select=id&limit=1", {
+    const res = await fetch(url + "/rest/v1/cities?select=id&limit=1", {
       headers: { "apikey": key, "Authorization": "Bearer " + key },
     });
     if (!res.ok) { errEl.textContent = "✗ " + await httpErrorText(res); $("connectBtn").disabled = false; return; }
@@ -407,9 +545,11 @@ async function saveConfig() {
   show("home");
 }
 
+// Kurulumdaki bağlantı testi cities tablosuna karşı yapılır (ana ekranın ilk sorgusu).
+
 // ── Başlangıç ─────────────────────────────────────────────────
 if (!cfg.url || !cfg.key) show("setup");
-else loadPlaces();
+else loadHome();
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

@@ -26,6 +26,22 @@ alter table places enable row level security;
 
 create policy "herkes okur yazar" on places
   for all using (true) with check (true);
+
+-- Şehirler (ülkeye göre gruplanan ana ekran listesi)
+create table cities (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  country     text not null,
+  created_at  timestamptz default now()
+);
+
+alter table cities enable row level security;
+
+create policy "herkes okur yazar" on cities
+  for all using (true) with check (true);
+
+-- İlk şehir
+insert into cities (name, country) values ('Hanoi', 'Vietnam');
 ```
 
 3. **Project Settings → API** bölümünden şu ikisini kopyala:
