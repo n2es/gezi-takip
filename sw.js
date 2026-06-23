@@ -1,4 +1,4 @@
-const CACHE = "gezi-takip-v3";
+const CACHE = "gezi-takip-v4";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {

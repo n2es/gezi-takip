@@ -60,6 +60,19 @@
     color: var(--muted); margin: 18px 0 8px; }
   .cat-group:first-child { margin-top: 4px; }
 
+  /* Açılır-kapanır kategori başlığı (şehir ekranı) */
+  .cat-head { display: flex; align-items: center; gap: 10px; cursor: pointer;
+    background: var(--card); border: 1px solid #2a2f3a; border-radius: 12px;
+    padding: 15px 16px; margin-bottom: 8px; }
+  .cat-head:active { background: var(--card2); }
+  .cat-head .clabel { flex: 1; font-size: 16px; font-weight: 600; }
+  .cat-head .ccount { font-size: 13px; color: var(--muted); }
+  .cat-head .cchev { color: var(--muted); font-size: 20px; line-height: 1; transition: transform .2s; }
+  .cat-head.open .cchev { transform: rotate(90deg); }
+  .cat-head.open { margin-bottom: 8px; }
+  /* Açık bölümdeki yerler hafif girintili */
+  .place.nested { margin-left: 12px; }
+
   .place { display: flex; align-items: center; background: var(--card);
     border: 1px solid #2a2f3a; border-radius: 12px; margin-bottom: 8px; }
   .place .info { flex: 1; min-width: 0; padding: 14px 0 14px 16px; cursor: pointer; }
@@ -140,7 +153,6 @@
     <span class="spacer"></span>
   </div>
   <div class="chips" id="statusChips"></div>
-  <div class="chips" id="catChips"></div>
   <div id="list"></div>
   <div class="list-foot">
     <span class="summary" id="summary"></span>
@@ -231,7 +243,7 @@ let cities = [];        // tüm şehirler (önbellek)
 let activeCity = "";    // açık olan şehir (yer listesi bu şehre ait)
 let places = [];        // aktif şehrin yer kayıtları
 let fStatus = "all";    // all | todo | done
-let fCat = "all";       // all | <slug>
+let openCat = null;     // açık kategori akordeonu (slug) ya da null
 let addCat = "sight";   // yer ekle ekranındaki seçili kategori
 let editingPlaceId = null; // doluysa "add" ekranı düzenleme modunda
 
@@ -363,7 +375,7 @@ function renderHome(counts) {
 
 function openCity(name) {
   activeCity = name;
-  fStatus = "all"; fCat = "all"; // her şehirde filtreyi sıfırla
+  fStatus = "all"; openCat = null; // her şehirde filtre + akordeon sıfırla
   show("city");
 }
 
@@ -389,14 +401,21 @@ function renderFilterChips() {
   const statuses = [["all", "Hepsi"], ["todo", "Gezilecek"], ["done", "Gezildi"]];
   $("statusChips").innerHTML = statuses.map(([v, l]) =>
     `<button class="chip${fStatus === v ? " sel" : ""}" onclick="setStatusFilter('${v}')">${l}</button>`).join("");
-  let cats = `<button class="chip${fCat === "all" ? " sel" : ""}" onclick="setCatFilter('all')">Hepsi</button>`;
-  cats += CATS.map(c =>
-    `<button class="chip${fCat === c.slug ? " sel" : ""}" onclick="setCatFilter('${c.slug}')">${c.label}</button>`).join("");
-  $("catChips").innerHTML = cats;
 }
 
 function setStatusFilter(v) { fStatus = v; renderFilterChips(); renderList(); }
-function setCatFilter(v) { fCat = v; renderFilterChips(); renderList(); }
+
+// Akordeon: sadece basılan kategori açık kalır (tekrar basınca kapanır).
+function tapCat(slug) { openCat = openCat === slug ? null : slug; renderList(); }
+
+function catHeadHtml(slug, label, count, open) {
+  return `
+    <div class="cat-head${open ? " open" : ""}" onclick="tapCat('${slug}')">
+      <span class="clabel">${escapeHtml(label)}</span>
+      <span class="ccount">${count}</span>
+      <span class="cchev">›</span>
+    </div>`;
+}
 
 function renderList() {
   const list = $("list");
@@ -410,28 +429,27 @@ function renderList() {
     return;
   }
 
-  const filtered = places.filter(p =>
-    (fStatus === "all" || p.status === fStatus) &&
-    (fCat === "all" || (p.category || "") === fCat));
-
-  if (!filtered.length) {
+  // Durum filtresi: kapsamı belirler. Kategori akordeon başlıkları altında gruplanır.
+  const inScope = places.filter(p => fStatus === "all" || p.status === fStatus);
+  if (!inScope.length) {
     list.innerHTML = '<div class="empty">Bu filtrede yer yok.</div>';
     return;
   }
 
-  // Kategoriye göre grupla (sabit sıra), grup içinde ada göre (zaten sıralı geldi).
   let html = "";
   for (const c of CATS) {
-    const rows = filtered.filter(p => (p.category || "") === c.slug);
+    const rows = inScope.filter(p => (p.category || "") === c.slug);
     if (!rows.length) continue;
-    if (fCat === "all") html += `<div class="cat-group">${c.label}</div>`;
-    html += rows.map(rowHtml).join("");
+    const open = openCat === c.slug;
+    html += catHeadHtml(c.slug, c.label, rows.length, open);
+    if (open) html += rows.map(rowHtml).join("");
   }
-  // Kategorisi tanımsız kayıtlar (olursa) en sona "Diğer" altında.
-  const other = filtered.filter(p => !CAT_LABEL[p.category]);
+  // Kategorisi tanımsız kayıtlar (olursa) "Diğer" altında.
+  const other = inScope.filter(p => !CAT_LABEL[p.category]);
   if (other.length) {
-    if (fCat === "all") html += `<div class="cat-group">Diğer</div>`;
-    html += other.map(rowHtml).join("");
+    const open = openCat === "__other";
+    html += catHeadHtml("__other", "Diğer", other.length, open);
+    if (open) html += other.map(rowHtml).join("");
   }
   list.innerHTML = html;
 }
@@ -439,7 +457,7 @@ function renderList() {
 function rowHtml(p) {
   const area = p.area ? `<div class="area">${escapeHtml(p.area)}</div>` : "";
   return `
-    <div class="place${p.status === "done" ? " done" : ""}">
+    <div class="place nested${p.status === "done" ? " done" : ""}">
       <div class="info" onclick="editPlace('${p.id}')">
         <div class="name">${escapeHtml(p.name)}</div>
         ${area}
