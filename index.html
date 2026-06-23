@@ -60,18 +60,25 @@
     color: var(--muted); margin: 18px 0 8px; }
   .cat-group:first-child { margin-top: 4px; }
 
-  .place { display: flex; align-items: center; gap: 12px; background: var(--card);
-    border: 1px solid #2a2f3a; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; cursor: pointer; }
-  .place:active { background: var(--card2); }
-  .place .info { flex: 1; min-width: 0; }
+  .place { display: flex; align-items: center; background: var(--card);
+    border: 1px solid #2a2f3a; border-radius: 12px; margin-bottom: 8px; }
+  .place .info { flex: 1; min-width: 0; padding: 14px 0 14px 16px; cursor: pointer; }
+  .place .info:active { opacity: .6; }
   .place .name { font-size: 16px; }
   .place .area { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .place.done .name { color: var(--muted); text-decoration: line-through; }
-  .toggle { width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%;
-    border: 2px solid #3a4150; display: flex; align-items: center; justify-content: center; }
-  .place.done .toggle { background: var(--green); border-color: var(--green); }
-  .toggle svg { display: none; }
-  .place.done .toggle svg { display: block; }
+  .toggle { width: 52px; height: 52px; flex-shrink: 0; background: none; border: none;
+    padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .toggle:active { opacity: .6; }
+  .toggle .circle { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #3a4150;
+    display: flex; align-items: center; justify-content: center; }
+  .place.done .toggle .circle { background: var(--green); border-color: var(--green); }
+  .toggle .circle svg { display: none; }
+  .place.done .toggle .circle svg { display: block; }
+
+  .danger { width: 100%; background: none; border: 1px solid #5a2e2e; border-radius: 12px;
+    color: var(--red); font-size: 16px; font-weight: 600; padding: 14px; margin-top: 12px; cursor: pointer; }
+  .danger:active { background: rgba(224, 82, 82, .1); }
 
   .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 15px; line-height: 1.5; }
 
@@ -137,7 +144,7 @@
   <div id="list"></div>
   <div class="list-foot">
     <span class="summary" id="summary"></span>
-    <button class="add-btn" onclick="show('add')">＋ Yer ekle</button>
+    <button class="add-btn" onclick="newPlace()">＋ Yer ekle</button>
   </div>
 </section>
 
@@ -164,7 +171,7 @@
     <button class="back-btn" onclick="show('city')" aria-label="Geri">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
-    <h1>Yer Ekle</h1>
+    <h1 id="addTitle">Yer Ekle</h1>
     <span class="spacer"></span>
   </div>
   <label for="pName">Ad</label>
@@ -176,6 +183,7 @@
   <label for="pNote">Not (isteğe bağlı)</label>
   <input type="text" id="pNote" placeholder="" autocomplete="off">
   <button class="primary" id="saveBtn" onclick="savePlace()">Kaydet</button>
+  <button class="danger" id="delBtn" onclick="deletePlace()" style="display:none">Bu yeri sil</button>
 </section>
 
 <!-- KURULUM -->
@@ -225,6 +233,7 @@ let places = [];        // aktif şehrin yer kayıtları
 let fStatus = "all";    // all | todo | done
 let fCat = "all";       // all | <slug>
 let addCat = "sight";   // yer ekle ekranındaki seçili kategori
+let editingPlaceId = null; // doluysa "add" ekranı düzenleme modunda
 
 // ── Ekran geçişi ──────────────────────────────────────────────
 function show(id) {
@@ -234,8 +243,20 @@ function show(id) {
   if (id === "home") loadHome();
   if (id === "city") { $("cityTitle").textContent = activeCity; loadPlaces(); }
   if (id === "add") {
-    $("pName").value = ""; $("pArea").value = ""; $("pNote").value = "";
-    addCat = "sight"; renderAddChips();
+    const rec = editingPlaceId ? places.find(p => String(p.id) === String(editingPlaceId)) : null;
+    $("addTitle").textContent = rec ? "Yer Düzenle" : "Yer Ekle";
+    $("saveBtn").textContent = rec ? "Güncelle" : "Kaydet";
+    $("delBtn").style.display = rec ? "block" : "none";
+    if (rec) {
+      $("pName").value = rec.name;
+      $("pArea").value = rec.area || "";
+      $("pNote").value = rec.note || "";
+      addCat = CAT_LABEL[rec.category] ? rec.category : "sight";
+    } else {
+      $("pName").value = ""; $("pArea").value = ""; $("pNote").value = "";
+      addCat = "sight";
+    }
+    renderAddChips();
   }
   if (id === "addcity") {
     $("cName").value = ""; $("cCountry").value = "";
@@ -418,14 +439,16 @@ function renderList() {
 function rowHtml(p) {
   const area = p.area ? `<div class="area">${escapeHtml(p.area)}</div>` : "";
   return `
-    <div class="place${p.status === "done" ? " done" : ""}" onclick="toggleStatus('${p.id}')">
-      <div class="info">
+    <div class="place${p.status === "done" ? " done" : ""}">
+      <div class="info" onclick="editPlace('${p.id}')">
         <div class="name">${escapeHtml(p.name)}</div>
         ${area}
       </div>
-      <span class="toggle">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-      </span>
+      <button class="toggle" onclick="toggleStatus('${p.id}')" aria-label="İşaretle">
+        <span class="circle">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+        </span>
+      </button>
     </div>`;
 }
 
@@ -460,26 +483,54 @@ function renderAddChips() {
 }
 function pickAddCat(slug) { addCat = slug; renderAddChips(); }
 
+function newPlace() { editingPlaceId = null; show("add"); }
+function editPlace(id) { editingPlaceId = id; show("add"); }
+
 async function savePlace() {
   const name = normName($("pName").value);
   if (!name) return toast("Yer adını yaz", true);
-  const row = { city: activeCity, name, category: addCat, status: "todo" };
   const area = normName($("pArea").value);
   const note = $("pNote").value.trim();
-  if (area) row.area = area;
-  if (note) row.note = note;
 
   $("saveBtn").disabled = true;
   let res;
   try {
-    res = await fetch(cfg.url + "/rest/v1/places", { method: "POST", headers: headers(), body: JSON.stringify(row) });
+    if (editingPlaceId) {
+      // Düzenleme: ad/kategori/semt/not güncellenir; durum (gezildi) korunur.
+      const patch = { name, category: addCat, area: area || null, note: note || null };
+      res = await fetch(cfg.url + "/rest/v1/places?id=eq." + editingPlaceId, {
+        method: "PATCH", headers: headers(), body: JSON.stringify(patch),
+      });
+    } else {
+      const row = { city: activeCity, name, category: addCat, status: "todo" };
+      if (area) row.area = area;
+      if (note) row.note = note;
+      res = await fetch(cfg.url + "/rest/v1/places", { method: "POST", headers: headers(), body: JSON.stringify(row) });
+    }
   } catch (e) {
     $("saveBtn").disabled = false;
     return toast("Bağlantı yok — kaydedilemedi, tekrar dene", true);
   }
   $("saveBtn").disabled = false;
   if (!res.ok) return toast(await httpErrorText(res), true);
-  toast("Eklendi ✓");
+  toast(editingPlaceId ? "Güncellendi ✓" : "Eklendi ✓");
+  show("city");
+}
+
+async function deletePlace() {
+  if (!editingPlaceId) return;
+  if (!confirm("Bu yeri silmek istiyor musun? Bu işlem geri alınamaz.")) return;
+  $("delBtn").disabled = true;
+  let res;
+  try {
+    res = await fetch(cfg.url + "/rest/v1/places?id=eq." + editingPlaceId, { method: "DELETE", headers: headers() });
+  } catch (e) {
+    $("delBtn").disabled = false;
+    return toast("Bağlantı yok — silinemedi, tekrar dene", true);
+  }
+  $("delBtn").disabled = false;
+  if (!res.ok) return toast(await httpErrorText(res), true);
+  toast("Silindi");
   show("city");
 }
 
