@@ -44,6 +44,15 @@ create policy "herkes okur yazar" on cities
 insert into cities (name, country) values ('Hanoi', 'Vietnam');
 ```
 
+### Güncelleme: öncelik + harita alanları (mevcut kuruluma ekle)
+
+Yerlere öncelik ve Google Maps linki eklemek için (mevcut veriyi bozmaz):
+
+```sql
+alter table places add column if not exists priority text;   -- Mutlaka Gör | Vakit Varsa | Alternatif
+alter table places add column if not exists maps_url text;   -- Google Maps linki
+```
+
 3. **Project Settings → API** bölümünden şu ikisini kopyala:
    - **Project URL** (örn. `https://abcdefgh.supabase.co`)
    - API anahtarı: **anon / publishable** (`eyJ...` veya `sb_publishable_...`). **Secret/service_role anahtarını kullanma.**

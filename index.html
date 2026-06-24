@@ -78,8 +78,14 @@
   .place .info { flex: 1; min-width: 0; padding: 14px 0 14px 16px; cursor: pointer; }
   .place .info:active { opacity: .6; }
   .place .name { font-size: 16px; }
-  .place .area { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .place .sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
   .place.done .name { color: var(--muted); text-decoration: line-through; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px;
+    border-radius: 7px; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
+  .badge.must { background: rgba(79, 140, 255, .18); color: var(--accent); }
+  .badge.soft { background: #232733; color: var(--muted); }
+  .maplink { color: var(--accent); text-decoration: none; }
+  .maplink:active { opacity: .6; }
   .toggle { width: 52px; height: 52px; flex-shrink: 0; background: none; border: none;
     padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .toggle:active { opacity: .6; }
@@ -123,6 +129,12 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast.err { background: var(--red); }
 
+  .opt-btn { display: block; width: 100%; text-align: left; background: var(--card);
+    border: 1px solid #2a2f3a; border-radius: var(--radius); padding: 20px; margin-bottom: 14px; cursor: pointer; }
+  .opt-btn:active { background: var(--card2); }
+  .opt-btn .opt-title { display: block; font-size: 18px; font-weight: 600; color: var(--text); }
+  .opt-btn .opt-desc { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; }
+
   .setup-box { background: var(--card); border-radius: var(--radius); padding: 20px; margin-top: 20px; }
   .setup-box p { font-size: 14px; color: var(--muted); line-height: 1.5; }
   .setup-err { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 16px; line-height: 1.4; }
@@ -139,7 +151,7 @@
   <div id="cityList"></div>
   <div class="list-foot">
     <span class="summary" id="citySummary"></span>
-    <button class="add-btn" onclick="show('addcity')">＋ Şehir ekle</button>
+    <button class="add-btn" onclick="show('newcity')">＋ Şehir ekle</button>
   </div>
 </section>
 
@@ -160,13 +172,44 @@
   </div>
 </section>
 
-<!-- ŞEHİR EKLE -->
-<section id="addcity" class="screen">
+<!-- ŞEHİR EKLE: SEÇİCİ -->
+<section id="newcity" class="screen">
   <div class="topbar">
     <button class="back-btn" onclick="show('home')" aria-label="Geri">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <h1>Şehir Ekle</h1>
+    <span class="spacer"></span>
+  </div>
+  <button class="opt-btn" onclick="show('addcity')">
+    <span class="opt-title">Boş Şehir Oluştur</span>
+    <span class="opt-desc">Şehir ve ülkeyi gir, yerleri kendin ekle</span>
+  </button>
+  <button class="opt-btn" onclick="show('guidelist')">
+    <span class="opt-title">Rehberden Oluştur</span>
+    <span class="opt-desc">Hazır bir şehir rehberinden otomatik kur</span>
+  </button>
+</section>
+
+<!-- REHBERDEN OLUŞTUR: REHBER LİSTESİ -->
+<section id="guidelist" class="screen">
+  <div class="topbar">
+    <button class="back-btn" onclick="show('newcity')" aria-label="Geri">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1>Rehberden Oluştur</h1>
+    <span class="spacer"></span>
+  </div>
+  <div id="guideList"></div>
+</section>
+
+<!-- BOŞ ŞEHİR EKLE -->
+<section id="addcity" class="screen">
+  <div class="topbar">
+    <button class="back-btn" onclick="show('newcity')" aria-label="Geri">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1>Boş Şehir</h1>
     <span class="spacer"></span>
   </div>
   <label for="cName">Şehir</label>
@@ -192,8 +235,12 @@
   <div class="chips" id="addCatChips"></div>
   <label for="pArea">Semt (isteğe bağlı)</label>
   <input type="text" id="pArea" placeholder="Örn. Old Quarter" autocomplete="off">
+  <label>Öncelik (isteğe bağlı)</label>
+  <div class="chips" id="prioChips"></div>
   <label for="pNote">Not (isteğe bağlı)</label>
   <input type="text" id="pNote" placeholder="" autocomplete="off">
+  <label for="pMaps">Google Maps linki (isteğe bağlı)</label>
+  <input type="text" id="pMaps" placeholder="https://maps.app.goo.gl/..." autocomplete="off">
   <button class="primary" id="saveBtn" onclick="savePlace()">Kaydet</button>
   <button class="danger" id="delBtn" onclick="deletePlace()" style="display:none">Bu yeri sil</button>
 </section>
@@ -220,6 +267,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="guides.js"></script>
 <script>
 // ── Yapılandırma ──────────────────────────────────────────────
 const cfg = {
@@ -237,6 +285,11 @@ const CATS = [
   { slug: "food",     label: "Yeme-İçme" },
 ];
 const CAT_LABEL = Object.fromEntries(CATS.map(c => [c.slug, c.label]));
+// Rehber/etiketten slug'a (örn. "Simge" → "sight") — rehber içe aktarımı için
+const LABEL_TO_SLUG = Object.fromEntries(CATS.map(c => [c.label, c.slug]));
+
+const PRIORITIES = ["Mutlaka Gör", "Vakit Varsa", "Alternatif"];
+const GUIDES = window.GUIDES || [];
 
 // ── Durum ─────────────────────────────────────────────────────
 let cities = [];        // tüm şehirler (önbellek)
@@ -245,7 +298,19 @@ let places = [];        // aktif şehrin yer kayıtları
 let fStatus = "all";    // all | todo | done
 let openCat = null;     // açık kategori akordeonu (slug) ya da null
 let addCat = "sight";   // yer ekle ekranındaki seçili kategori
+let addPrio = null;     // yer ekle ekranındaki seçili öncelik (ya da null)
 let editingPlaceId = null; // doluysa "add" ekranı düzenleme modunda
+
+// http(s) değilse şema ekler; javascript:/data: gibi tehlikeli şemaları engeller.
+function safeUrl(u) {
+  u = String(u || "").trim();
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u)) return u;
+  if (/^(javascript|data|vbscript):/i.test(u)) return "";
+  return "https://" + u;
+}
+const escapeAttr = (s) => escapeHtml(s);
+const prioClass = (pr) => (pr === "Mutlaka Gör" ? "must" : "soft");
 
 // ── Ekran geçişi ──────────────────────────────────────────────
 function show(id) {
@@ -263,13 +328,16 @@ function show(id) {
       $("pName").value = rec.name;
       $("pArea").value = rec.area || "";
       $("pNote").value = rec.note || "";
+      $("pMaps").value = rec.maps_url || "";
       addCat = CAT_LABEL[rec.category] ? rec.category : "sight";
+      addPrio = PRIORITIES.includes(rec.priority) ? rec.priority : null;
     } else {
-      $("pName").value = ""; $("pArea").value = ""; $("pNote").value = "";
-      addCat = "sight";
+      $("pName").value = ""; $("pArea").value = ""; $("pNote").value = ""; $("pMaps").value = "";
+      addCat = "sight"; addPrio = null;
     }
-    renderAddChips();
+    renderAddChips(); renderPrioChips();
   }
+  if (id === "guidelist") renderGuideList();
   if (id === "addcity") {
     $("cName").value = ""; $("cCountry").value = "";
     renderCountryChips();
@@ -455,12 +523,17 @@ function renderList() {
 }
 
 function rowHtml(p) {
-  const area = p.area ? `<div class="area">${escapeHtml(p.area)}</div>` : "";
+  const badge = p.priority ? `<span class="badge ${prioClass(p.priority)}">${escapeHtml(p.priority)}</span>` : "";
+  const parts = [];
+  if (p.area) parts.push(escapeHtml(p.area));
+  const url = safeUrl(p.maps_url);
+  if (url) parts.push(`<a class="maplink" href="${escapeAttr(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Harita ↗</a>`);
+  const sub = parts.length ? `<div class="sub">${parts.join(" · ")}</div>` : "";
   return `
     <div class="place nested${p.status === "done" ? " done" : ""}">
       <div class="info" onclick="editPlace('${p.id}')">
-        <div class="name">${escapeHtml(p.name)}</div>
-        ${area}
+        <div class="name">${escapeHtml(p.name)}${badge}</div>
+        ${sub}
       </div>
       <button class="toggle" onclick="toggleStatus('${p.id}')" aria-label="İşaretle">
         <span class="circle">
@@ -501,29 +574,50 @@ function renderAddChips() {
 }
 function pickAddCat(slug) { addCat = slug; renderAddChips(); }
 
+function renderPrioChips() {
+  $("prioChips").innerHTML = PRIORITIES.map(pr =>
+    `<button class="chip${addPrio === pr ? " sel" : ""}" onclick="pickPrio('${pr.replace(/'/g, "\\'")}')">${pr}</button>`).join("");
+}
+// Aynı önceliğe tekrar basınca seçim kalkar (öncelik isteğe bağlı).
+function pickPrio(pr) { addPrio = addPrio === pr ? null : pr; renderPrioChips(); }
+
 function newPlace() { editingPlaceId = null; show("add"); }
 function editPlace(id) { editingPlaceId = id; show("add"); }
+
+// places'a yazar; priority/maps_url kolonları henüz yoksa onlarsız tekrar dener.
+// body tek nesne ya da dizi olabilir (toplu içe aktarım için).
+// Fallback'e düşülürse schemaStripped=true olur (çağıran uyarıyı gösterir).
+let schemaStripped = false;
+async function placeWrite(method, suffix, body) {
+  schemaStripped = false;
+  let res = await fetch(cfg.url + "/rest/v1/places" + suffix, { method, headers: headers(), body: JSON.stringify(body) });
+  if (res.status === 400 && (await res.clone().text()).includes("column")) {
+    const strip = (o) => { const { priority, maps_url, ...rest } = o; return rest; };
+    const body2 = Array.isArray(body) ? body.map(strip) : strip(body);
+    res = await fetch(cfg.url + "/rest/v1/places" + suffix, { method, headers: headers(), body: JSON.stringify(body2) });
+    schemaStripped = res.ok;
+  }
+  return res;
+}
 
 async function savePlace() {
   const name = normName($("pName").value);
   if (!name) return toast("Yer adını yaz", true);
   const area = normName($("pArea").value);
   const note = $("pNote").value.trim();
+  const maps = $("pMaps").value.trim();
 
   $("saveBtn").disabled = true;
   let res;
   try {
     if (editingPlaceId) {
-      // Düzenleme: ad/kategori/semt/not güncellenir; durum (gezildi) korunur.
-      const patch = { name, category: addCat, area: area || null, note: note || null };
-      res = await fetch(cfg.url + "/rest/v1/places?id=eq." + editingPlaceId, {
-        method: "PATCH", headers: headers(), body: JSON.stringify(patch),
-      });
+      // Düzenleme: ad/kategori/semt/öncelik/not/harita güncellenir; durum (gezildi) korunur.
+      const patch = { name, category: addCat, area: area || null, note: note || null, priority: addPrio || null, maps_url: maps || null };
+      res = await placeWrite("PATCH", "?id=eq." + editingPlaceId, patch);
     } else {
-      const row = { city: activeCity, name, category: addCat, status: "todo" };
-      if (area) row.area = area;
-      if (note) row.note = note;
-      res = await fetch(cfg.url + "/rest/v1/places", { method: "POST", headers: headers(), body: JSON.stringify(row) });
+      const row = { city: activeCity, name, category: addCat, status: "todo",
+        area: area || null, note: note || null, priority: addPrio || null, maps_url: maps || null };
+      res = await placeWrite("POST", "", row);
     }
   } catch (e) {
     $("saveBtn").disabled = false;
@@ -531,8 +625,68 @@ async function savePlace() {
   }
   $("saveBtn").disabled = false;
   if (!res.ok) return toast(await httpErrorText(res), true);
-  toast(editingPlaceId ? "Güncellendi ✓" : "Eklendi ✓");
+  toast(schemaStripped
+    ? "Kaydedildi ama öncelik/harita yazılamadı — KURULUM.md'deki güncelleme SQL'ini çalıştır"
+    : (editingPlaceId ? "Güncellendi ✓" : "Eklendi ✓"), schemaStripped);
   show("city");
+}
+
+// ── Rehberden oluştur ─────────────────────────────────────────
+function renderGuideList() {
+  const el = $("guideList");
+  if (!GUIDES.length) {
+    el.innerHTML = '<div class="empty">Henüz rehber yok.<br>Rehber verileri eklendikçe burada görünecek.</div>';
+    return;
+  }
+  el.innerHTML = GUIDES.map((g, i) => {
+    const n = (g.places || []).length;
+    const exists = cities.some(c => c.name.toLocaleLowerCase("tr") === String(g.city || "").toLocaleLowerCase("tr"));
+    return `
+      <div class="city-row" onclick="importGuide(${i})">
+        <span class="cname">${escapeHtml(g.city || "")}${exists ? ' <span class="badge soft">ekli</span>' : ""}</span>
+        <span class="cmeta">${escapeHtml(g.country || "")} · ${n} yer</span>
+      </div>`;
+  }).join("");
+}
+
+async function importGuide(idx) {
+  const g = GUIDES[idx];
+  if (!g) return;
+  const cityName = normName(g.city || "");
+  if (!cityName) return toast("Rehberde şehir adı yok", true);
+  if (cities.some(c => c.name.toLocaleLowerCase("tr") === cityName.toLocaleLowerCase("tr")))
+    return toast("Bu şehir zaten ekli", true);
+
+  // 1) Şehir
+  let cRes;
+  try {
+    cRes = await fetch(cfg.url + "/rest/v1/cities", { method: "POST", headers: headers(), body: JSON.stringify({ name: cityName, country: normName(g.country || "") }) });
+  } catch (e) { return toast("Bağlantı yok — tekrar dene", true); }
+  if (!cRes.ok) return toast(await httpErrorText(cRes), true);
+
+  // 2) Yerler (tüm satırlar aynı anahtarlarla — PostgREST toplu insert kuralı)
+  const rows = (g.places || []).map(pl => ({
+    city: cityName,
+    name: normName(pl.name || ""),
+    category: LABEL_TO_SLUG[pl.category] || null,
+    area: pl.area || null,
+    note: pl.note || null,
+    priority: PRIORITIES.includes(pl.priority) ? pl.priority : null,
+    maps_url: pl.mapsUrl || null,
+    status: pl.visited ? "done" : "todo",
+    visited_at: pl.visited ? new Date().toISOString() : null,
+  })).filter(r => r.name);
+
+  if (rows.length) {
+    let pRes;
+    try { pRes = await placeWrite("POST", "", rows); }
+    catch (e) { return toast("Şehir eklendi ama yerler eklenemedi — tekrar dene", true); }
+    if (!pRes.ok) return toast("Şehir eklendi ama yerler eklenemedi: " + await httpErrorText(pRes), true);
+  }
+  toast(schemaStripped
+    ? cityName + " eklendi — öncelik/harita için KURULUM.md güncelleme SQL'ini çalıştır"
+    : cityName + " rehberi eklendi ✓", schemaStripped);
+  show("home");
 }
 
 async function deletePlace() {
